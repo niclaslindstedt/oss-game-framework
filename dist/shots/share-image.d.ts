@@ -34,10 +34,29 @@ type PendingCopy = {
  * Chromium and WebKit want is spent by the first `await`, and a write started
  * afterwards is refused as a document without user activation.
  *
+ * TWO WAYS IN, the second a fallback. First the promise form — a
+ * `ClipboardItem` whose value is a PROMISE of the blob, which is what Safari
+ * insists on. Where that is not taken (the constructor throws on a promise
+ * value, or the write refuses it) the finished blob is written once it
+ * arrives, which works in Chromium, whose activation outlives an encode. The
+ * worst case is a copy that did not happen on one browser, never a throw.
+ *
  * Returns null where this browser has no PNG writer, so a caller can say what
  * it actually did rather than promising a copy that never happened.
  */
 declare function copyWhenReady(): PendingCopy | null;
+/** How long a receipt waits for the clipboard by default, ms. */
+declare const COPY_WAIT_MS = 1200;
+/**
+ * Whether a pending copy landed, ANSWERING EITHER WAY within `ms`.
+ *
+ * `clipboard.write` does not always answer: an unfocused window, a
+ * permission the browser sits on, an automated pass with no clipboard at all
+ * — the promise simply never settles, and a shutter whose only receipt hangs
+ * off it tells the player nothing about a picture that is already kept. A
+ * late yes is reported as a no; the picture is on the clipboard regardless.
+ */
+declare function copiedWithin(copy: PendingCopy, ms?: number): Promise<boolean>;
 /** Save the PNG to the player's downloads. The path that always works.
  *
  * The anchor is put in the document rather than clicked detached: Firefox
@@ -47,10 +66,12 @@ declare function copyWhenReady(): PendingCopy | null;
 declare function saveImage(blob: Blob, name: string): boolean;
 
 export {
+  COPY_WAIT_MS,
   MIME_PNG,
   type PendingCopy,
   canCopyImage,
   canShareImage,
+  copiedWithin,
   copyImage,
   copyWhenReady,
   pngFile,

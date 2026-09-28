@@ -22,10 +22,12 @@ export {
 } from "./shot-store.js";
 export { THUMB_BOX, releaseThumbs, thumbUrl } from "./shot-thumbs.js";
 export {
+  COPY_WAIT_MS,
   MIME_PNG,
   PendingCopy,
   canCopyImage,
   canShareImage,
+  copiedWithin,
   copyImage,
   copyWhenReady,
   pngFile,

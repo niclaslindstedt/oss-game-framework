@@ -11,7 +11,18 @@ import { DEFAULT_VOLUME, playDef, playSound } from "../src/audio/play";
 import { createRack } from "../src/audio/rack";
 import type { SoundBank } from "../src/audio/types";
 import { scaledView } from "../src/audio/view";
-import type { Layer, LayerSpec, LayerTarget, Synth } from "../src/audio/voice";
+import {
+  MAX_CUTOFF_RATIO,
+  MIN_ATTACK_MS,
+  envelopeShape,
+  safeCutoff,
+  shaperPush,
+  shaperSteepness,
+  type Layer,
+  type LayerSpec,
+  type LayerTarget,
+  type Synth,
+} from "../src/audio/voice";
 
 type Call = { call: string; options: Record<string, unknown> };
 
@@ -105,5 +116,68 @@ describe("a rack of layers (rack.ts)", () => {
     expect(layers).toHaveLength(2);
     rack.stop();
     expect(rack.live()).toBe(0);
+  });
+});
+
+describe("the shape of a voice", () => {
+  const SHAPES: [string, ReturnType<typeof envelopeShape>][] = [
+    ["a held pad", envelopeShape(0.05, 0, 0.9, 300, 400, "exp")],
+    ["a plucked note", envelopeShape(0.06, 0, 0.045, 0, 0, "exp")],
+    ["a bare hi-hat burst", envelopeShape(0.009, 0, 0.014, 0, 0, "lin")],
+    ["a swell", envelopeShape(0.03, 0, 0.4, 40, 200, "exp")],
+  ];
+
+  it("never starts a voice at full scale, however short or unshaped", () => {
+    for (const [name, steps] of SHAPES) {
+      expect(steps[0].value, name).toBeLessThanOrEqual(0.0001);
+      expect(steps[0].ramp, name).toBe("set");
+      expect(steps[1].at, name).toBeGreaterThan(steps[0].at);
+      expect(steps[1].ramp, name).not.toBe("set");
+    }
+  });
+
+  it("gets up to its peak fast enough that nothing is softened", () => {
+    for (const [name, steps] of SHAPES) {
+      if (name === "a held pad" || name === "a swell") continue;
+      expect(steps[1].at, name).toBeLessThanOrEqual(MIN_ATTACK_MS / 1000 + 1e-9);
+      expect(steps[1].value, name).toBeGreaterThan(0);
+    }
+  });
+
+  it("holds a pad at its peak instead of falling through the sustain", () => {
+    const pad = envelopeShape(0.05, 0, 0.9, 300, 400, "exp");
+    const peaks = pad.filter((p) => p.value > 0.001);
+    expect(peaks.length).toBe(2);
+    expect(peaks[1].at - peaks[0].at).toBeCloseTo(0.4, 3);
+    expect(pad[pad.length - 1].value).toBeLessThanOrEqual(0.0001);
+  });
+
+  it("saturates softly — the curve never steepens into a clip", () => {
+    // A curve steep enough to be a square wave at half travel aliases, and
+    // over a Bluetooth codec that is the torn-speaker sound.
+    expect(shaperSteepness(0)).toBe(1);
+    expect(shaperSteepness(1)).toBeLessThanOrEqual(10);
+    expect(shaperSteepness(0.5)).toBeGreaterThan(shaperSteepness(0.2));
+    expect(shaperPush(1)).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("what a filter may be asked for", () => {
+  const HEADSET_CEILING = 16000 * MAX_CUTOFF_RATIO;
+
+  it("holds a cutoff under Nyquist at every rate a context comes back at", () => {
+    for (const rate of [48000, 44100, 32000, 24000, 16000, 8000]) {
+      for (const hz of [20, 400, 2200, 8200, 12000, 19000]) {
+        const safe = safeCutoff(hz, rate);
+        expect(safe, `${hz} @ ${rate}`).toBeLessThan(rate / 2);
+        expect(safe, `${hz} @ ${rate}`).toBeGreaterThanOrEqual(20);
+      }
+    }
+  });
+
+  it("bites on a cutoff that would go over, at the rate iOS hands a headset", () => {
+    expect(safeCutoff(8200, 16000)).toBe(HEADSET_CEILING);
+    expect(safeCutoff(8200, 48000)).toBe(8200);
+    expect(safeCutoff(0, 48000)).toBe(20);
   });
 });

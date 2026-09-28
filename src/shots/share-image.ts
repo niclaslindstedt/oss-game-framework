@@ -125,23 +125,56 @@ export type PendingCopy = { done: Promise<boolean>; ready: (blob: Blob | null) =
  * Chromium and WebKit want is spent by the first `await`, and a write started
  * afterwards is refused as a document without user activation.
  *
+ * TWO WAYS IN, the second a fallback. First the promise form — a
+ * `ClipboardItem` whose value is a PROMISE of the blob, which is what Safari
+ * insists on. Where that is not taken (the constructor throws on a promise
+ * value, or the write refuses it) the finished blob is written once it
+ * arrives, which works in Chromium, whose activation outlives an encode. The
+ * worst case is a copy that did not happen on one browser, never a throw.
+ *
  * Returns null where this browser has no PNG writer, so a caller can say what
  * it actually did rather than promising a copy that never happened.
  */
 export function copyWhenReady(): PendingCopy | null {
   if (!canCopyImage()) return null;
-  let ready: (blob: Blob | null) => void = () => {};
-  const picture = new Promise<Blob>((resolve, reject) => {
-    ready = (blob) => (blob ? resolve(blob) : reject(new Error("no picture")));
+  let settle: (blob: Blob | null) => void = () => {};
+  const arrived = new Promise<Blob | null>((resolve) => {
+    settle = resolve;
   });
-  // The rejection is answered by the `write` below and by nothing else; this
+  const picture = arrived.then((blob) => blob ?? Promise.reject(new Error("no picture")));
+  // The rejection is answered by the write below and by nothing else; this
   // keeps a picture that never arrived from surfacing as an unhandled one.
   picture.catch(() => {});
-  const done = navigator.clipboard
-    .write([new ClipboardItem({ [MIME_PNG]: picture })])
-    .then(() => true)
-    .catch(() => false);
-  return { done, ready };
+  const later = (): Promise<boolean> => arrived.then((blob) => (blob ? copyImage(blob) : false));
+  let first: Promise<boolean>;
+  try {
+    first = navigator.clipboard
+      .write([new ClipboardItem({ [MIME_PNG]: picture })])
+      .then(() => true)
+      .catch(() => false);
+  } catch {
+    first = Promise.resolve(false);
+  }
+  return { done: first.then((copied) => copied || later()), ready: settle };
+}
+
+/** How long a receipt waits for the clipboard by default, ms. */
+export const COPY_WAIT_MS = 1200;
+
+/**
+ * Whether a pending copy landed, ANSWERING EITHER WAY within `ms`.
+ *
+ * `clipboard.write` does not always answer: an unfocused window, a
+ * permission the browser sits on, an automated pass with no clipboard at all
+ * — the promise simply never settles, and a shutter whose only receipt hangs
+ * off it tells the player nothing about a picture that is already kept. A
+ * late yes is reported as a no; the picture is on the clipboard regardless.
+ */
+export function copiedWithin(copy: PendingCopy, ms = COPY_WAIT_MS): Promise<boolean> {
+  return Promise.race([
+    copy.done,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ms)),
+  ]);
 }
 
 /** Save the PNG to the player's downloads. The path that always works.

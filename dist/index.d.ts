@@ -3,7 +3,7 @@ export { i as racing } from "./index-C0zxBYfL.js";
 export { i as audio } from "./index-B-NlHXc7.js";
 export { i as pwa } from "./index-DGzogO1m.js";
 export { i as display } from "./index-CCmBzesd.js";
-export { i as shots } from "./index-B248DWHg.js";
+export { i as shots } from "./index-Dq-J9FrO.js";
 export { i as input } from "./index-hmYf-s8z.js";
 export { i as hud } from "./index-BicAqm0n.js";
 export { i as loop } from "./index-DZXDt0s5.js";

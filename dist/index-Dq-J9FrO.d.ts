@@ -22,10 +22,12 @@ import {
 } from "./shots/shot-store.js";
 import { THUMB_BOX, releaseThumbs, thumbUrl } from "./shots/shot-thumbs.js";
 import {
+  COPY_WAIT_MS,
   MIME_PNG,
   PendingCopy,
   canCopyImage,
   canShareImage,
+  copiedWithin,
   copyImage,
   copyWhenReady,
   pngFile,
@@ -52,6 +54,7 @@ import {
 import { HudLayer, HudLayerSelectors, drawHudLayer, readHudLayer } from "./shots/shot-hud.js";
 
 declare const index_Box: typeof Box;
+declare const index_COPY_WAIT_MS: typeof COPY_WAIT_MS;
 declare const index_HUD_LAYER_ROOT: typeof HUD_LAYER_ROOT;
 declare const index_HudCover: typeof HudCover;
 declare const index_HudLayer: typeof HudLayer;
@@ -71,6 +74,7 @@ declare const index_canCopyImage: typeof canCopyImage;
 declare const index_canShareImage: typeof canShareImage;
 declare const index_clearShots: typeof clearShots;
 declare const index_configureShotStore: typeof configureShotStore;
+declare const index_copiedWithin: typeof copiedWithin;
 declare const index_copyImage: typeof copyImage;
 declare const index_copyWhenReady: typeof copyWhenReady;
 declare const index_cssPropertyName: typeof cssPropertyName;
@@ -103,6 +107,7 @@ declare const index_withStored: typeof withStored;
 declare namespace index {
   export {
     index_Box as Box,
+    index_COPY_WAIT_MS as COPY_WAIT_MS,
     index_HUD_LAYER_ROOT as HUD_LAYER_ROOT,
     index_HudCover as HudCover,
     index_HudLayer as HudLayer,
@@ -122,6 +127,7 @@ declare namespace index {
     index_canShareImage as canShareImage,
     index_clearShots as clearShots,
     index_configureShotStore as configureShotStore,
+    index_copiedWithin as copiedWithin,
     index_copyImage as copyImage,
     index_copyWhenReady as copyWhenReady,
     index_cssPropertyName as cssPropertyName,

@@ -43,16 +43,27 @@ async function copyImage(blob) {
 }
 function copyWhenReady() {
   if (!canCopyImage()) return null;
-  let ready = () => {};
-  const picture = new Promise((resolve, reject) => {
-    ready = (blob) => (blob ? resolve(blob) : reject(new Error("no picture")));
+  let settle = () => {};
+  const arrived = new Promise((resolve) => {
+    settle = resolve;
   });
+  const picture = arrived.then((blob) => blob ?? Promise.reject(new Error("no picture")));
   picture.catch(() => {});
-  const done = navigator.clipboard
-    .write([new ClipboardItem({ [MIME_PNG]: picture })])
-    .then(() => true)
-    .catch(() => false);
-  return { done, ready };
+  const later = () => arrived.then((blob) => (blob ? copyImage(blob) : false));
+  let first;
+  try {
+    first = navigator.clipboard
+      .write([new ClipboardItem({ [MIME_PNG]: picture })])
+      .then(() => true)
+      .catch(() => false);
+  } catch {
+    first = Promise.resolve(false);
+  }
+  return { done: first.then((copied) => copied || later()), ready: settle };
+}
+var COPY_WAIT_MS = 1200;
+function copiedWithin(copy, ms = COPY_WAIT_MS) {
+  return Promise.race([copy.done, new Promise((resolve) => setTimeout(() => resolve(false), ms))]);
 }
 function saveImage(blob, name) {
   try {
@@ -72,9 +83,11 @@ function saveImage(blob, name) {
 }
 
 export {
+  COPY_WAIT_MS,
   MIME_PNG,
   canCopyImage,
   canShareImage,
+  copiedWithin,
   copyImage,
   copyWhenReady,
   pngFile,

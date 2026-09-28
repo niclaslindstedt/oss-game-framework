@@ -90,3 +90,127 @@ describe("the cursor's walk (menu-cursor.ts)", () => {
     expect(pickNeighbour(card, 3, "down")).toBe(0);
   });
 });
+
+/** Everything the guard uses of a window is EventTarget, which Node has. */
+const fakeWindow = (): GuardWindow & EventTarget =>
+  new EventTarget() as unknown as GuardWindow & EventTarget;
+
+const pointerEvent = (type: string, pointerId: number): Event =>
+  Object.assign(new Event(type), { pointerId });
+
+/** A steering zone reduced to what matters here: the axis it writes and the
+ * fingers the browser says are on the glass. */
+function stubZone() {
+  const held = new Set<number>();
+  const state = { steer: 0 };
+  const win = fakeWindow();
+  const guard = createThumbGuard(() => {
+    state.steer = 0;
+  }, win);
+  const press = (pointerId: number, steer: number): boolean => {
+    held.add(pointerId);
+    const took = guard.claim(pointerId, (id) => held.has(id));
+    if (took) state.steer = steer;
+    return took;
+  };
+  return { held, state, win, guard, press };
+}
+
+describe("thumb zone ownership (the steering case)", () => {
+  it("centres the wheel when the pointerup arrives on the window instead", () => {
+    const zone = stubZone();
+    zone.press(1, 0.8);
+    expect(zone.state.steer).toBe(0.8);
+
+    // Capture is gone, so the finger lifts over whatever element it happens
+    // to be over — never over the zone.
+    zone.held.delete(1);
+    zone.win.dispatchEvent(pointerEvent("pointerup", 1));
+    expect(zone.state.steer).toBe(0);
+    zone.guard.dispose();
+  });
+
+  it("centres the wheel when no end event is delivered at all", () => {
+    const zone = stubZone();
+    zone.press(1, -0.6);
+
+    // The thumb slid off the bottom of the screen: nothing is dispatched
+    // anywhere, and only a poll can find that out.
+    zone.held.delete(1);
+    zone.guard.poll();
+    expect(zone.state.steer).toBe(0);
+    zone.guard.dispose();
+  });
+
+  it("hands the zone to the next finger once the first one is gone", () => {
+    const zone = stubZone();
+    zone.press(1, 0.5);
+
+    // A second finger while the first is genuinely down is ignored: it does
+    // not get to re-anchor the wheel under the thumb already steering.
+    expect(zone.press(2, 0.9)).toBe(false);
+    expect(zone.state.steer).toBe(0.5);
+
+    // But once the first is gone, the next touch takes the zone back — the
+    // wedged-forever case the player sees as steering no restart clears.
+    zone.held.delete(1);
+    zone.held.delete(2);
+    expect(zone.press(3, -0.4)).toBe(true);
+    expect(zone.state.steer).toBe(-0.4);
+    zone.guard.dispose();
+  });
+
+  it("lets go when the app loses focus or goes away", () => {
+    for (const event of ["blur", "visibilitychange"]) {
+      const zone = stubZone();
+      zone.press(1, 0.7);
+      zone.win.dispatchEvent(new Event(event));
+      expect(zone.state.steer, event).toBe(0);
+      zone.guard.dispose();
+    }
+  });
+
+  it("lets go when the zone unmounts under a live thumb", () => {
+    const zone = stubZone();
+    zone.press(1, 1);
+    zone.guard.dispose();
+    expect(zone.state.steer).toBe(0);
+  });
+});
+
+const CARD: NavRect[] = [
+  { x: 20, y: 0, w: 200, h: 30 }, // 0 back
+  { x: 20, y: 40, w: 200, h: 30 }, // 1 a row
+  { x: 20, y: 80, w: 95, h: 30 }, // 2 left of a pair
+  { x: 125, y: 80, w: 95, h: 30 }, // 3 right of a pair
+  { x: 20, y: 120, w: 200, h: 30 }, // 4 the last row
+];
+
+describe("the menu cursor's geometry", () => {
+  it("walks a column one row at a time", () => {
+    expect(pickNeighbour(CARD, 0, "down")).toBe(1);
+    expect(pickNeighbour(CARD, 1, "up")).toBe(0);
+  });
+
+  it("prefers the row underneath to a nearer button off to one side", () => {
+    // From the left of the pair, DOWN is the row below — not the button
+    // beside it, which is closer by centre distance alone.
+    expect(pickNeighbour(CARD, 2, "down")).toBe(4);
+    expect(pickNeighbour(CARD, 2, "right")).toBe(3);
+    expect(pickNeighbour(CARD, 3, "left")).toBe(2);
+  });
+
+  it("wraps to the far end rather than stopping dead", () => {
+    // Off the bottom lands on the TOP row, not the one above it: a list that
+    // stops makes a player walk all the way back for the button under their
+    // thumb.
+    expect(pickNeighbour(CARD, 4, "down")).toBe(0);
+    expect(pickNeighbour(CARD, 0, "up")).toBe(4);
+  });
+
+  it("has nowhere to go on an empty card, and starts at the top on a fresh one", () => {
+    expect(pickNeighbour([], 0, "down")).toBeNull();
+    // A cursor that is nowhere yet lands on the first item.
+    expect(pickNeighbour(CARD, -1, "down")).toBe(0);
+  });
+});

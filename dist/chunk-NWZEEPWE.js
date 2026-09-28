@@ -16,10 +16,12 @@ import {
   pngFile,
   copyWhenReady,
   copyImage,
+  copiedWithin,
   canShareImage,
   canCopyImage,
   MIME_PNG,
-} from "./chunk-CBARMFCE.js";
+  COPY_WAIT_MS,
+} from "./chunk-OL5GU4WW.js";
 import { readHudLayer, drawHudLayer } from "./chunk-T5WJMIEP.js";
 import {
   stampLift,
@@ -47,6 +49,7 @@ import { __export } from "./chunk-MLKGABMK.js";
 // src/shots/index.ts
 var shots_exports = {};
 __export(shots_exports, {
+  COPY_WAIT_MS: () => COPY_WAIT_MS,
   HUD_LAYER_ROOT: () => HUD_LAYER_ROOT,
   LAYER_STILL_CSS: () => LAYER_STILL_CSS,
   MIME_PNG: () => MIME_PNG,
@@ -57,6 +60,7 @@ __export(shots_exports, {
   canShareImage: () => canShareImage,
   clearShots: () => clearShots,
   configureShotStore: () => configureShotStore,
+  copiedWithin: () => copiedWithin,
   copyImage: () => copyImage,
   copyWhenReady: () => copyWhenReady,
   cssPropertyName: () => cssPropertyName,
