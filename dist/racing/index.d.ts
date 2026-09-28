@@ -1,0 +1,32 @@
+export {
+  AxisKind,
+  ControlTape,
+  Fingerprint,
+  LEVER_STEPS,
+  SIGNED_STEPS,
+  TapeReader,
+  TapeRecorder,
+  TapeSchema,
+  axisToByte,
+  byteToAxis,
+  createFingerprint,
+  createTapeRecorder,
+  decodeStream,
+  encodeStream,
+  isControlTape,
+  readTape,
+  snapAxis,
+  snapToGrid,
+} from "./tape.js";
+export {
+  Better,
+  Book,
+  RecordRow,
+  beats,
+  bestIn,
+  isFigure,
+  noteRecord,
+  readBook,
+  splitGap,
+} from "./records.js";
+export { Standing, fieldOrder, isAhead, legProgress, placeAmong } from "./standings.js";

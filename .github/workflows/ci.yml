@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # `labeled` / `unlabeled` so the `no-changelog` escape hatch re-runs the
+    # changeset job when the label is toggled after the PR opened.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: make fmt-check
+      - run: make lint
+      - run: make test
+      # dist/ is committed so the games can install a tag with no build step;
+      # it must be exactly what this commit's src/ builds to.
+      - run: make check-dist
+
+  changeset:
+    # Every PR touching the published surface drops a fragment under
+    # .changes/unreleased/, or opts out with the `no-changelog` label.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Check for changelog fragment
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: make check-changeset
+
+  symlinks:
+    # The tool-specific guidance files and .claude/skills must be symlinks,
+    # not copies that can drift.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify guidance symlinks resolve to AGENTS.md
+        run: |
+          set -e
+          for link in CLAUDE.md GEMINI.md .cursorrules .github/copilot-instructions.md; do
+            test -L "$link" || { echo "::error::$link must be a symlink"; exit 1; }
+          done
+          test "$(readlink CLAUDE.md)" = "AGENTS.md"
+          test -L .claude/skills || { echo "::error::.claude/skills must be a symlink"; exit 1; }
+          test "$(readlink .claude/skills)" = "../.agent/skills"

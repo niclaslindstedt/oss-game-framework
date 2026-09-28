@@ -1,0 +1,137 @@
+{
+  "name": "@niclaslindstedt/oss-game-framework",
+  "version": "0.1.0",
+  "description": "Shared building blocks for browser racing games on a deterministic engine \u2014 the seeded PRNG and math pool, a racing module (control tapes, record books, standings), a synthesized WebAudio instrument, the screenshot roll, touch plumbing, PWA updates and Node lab tooling \u2014 extracted from game2, game3 and game4.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Niclas Lindstedt <niclas@agilator.se>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niclaslindstedt/oss-game-framework.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "tooling",
+    "bin"
+  ],
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./core/*": {
+      "types": "./dist/core/*.d.ts",
+      "import": "./dist/core/*.js"
+    },
+    "./racing": {
+      "types": "./dist/racing/index.d.ts",
+      "import": "./dist/racing/index.js"
+    },
+    "./racing/*": {
+      "types": "./dist/racing/*.d.ts",
+      "import": "./dist/racing/*.js"
+    },
+    "./audio": {
+      "types": "./dist/audio/index.d.ts",
+      "import": "./dist/audio/index.js"
+    },
+    "./audio/*": {
+      "types": "./dist/audio/*.d.ts",
+      "import": "./dist/audio/*.js"
+    },
+    "./pwa": {
+      "types": "./dist/pwa/index.d.ts",
+      "import": "./dist/pwa/index.js"
+    },
+    "./pwa/*": {
+      "types": "./dist/pwa/*.d.ts",
+      "import": "./dist/pwa/*.js"
+    },
+    "./display": {
+      "types": "./dist/display/index.d.ts",
+      "import": "./dist/display/index.js"
+    },
+    "./display/*": {
+      "types": "./dist/display/*.d.ts",
+      "import": "./dist/display/*.js"
+    },
+    "./shots": {
+      "types": "./dist/shots/index.d.ts",
+      "import": "./dist/shots/index.js"
+    },
+    "./shots/*": {
+      "types": "./dist/shots/*.d.ts",
+      "import": "./dist/shots/*.js"
+    },
+    "./input": {
+      "types": "./dist/input/index.d.ts",
+      "import": "./dist/input/index.js"
+    },
+    "./input/*": {
+      "types": "./dist/input/*.d.ts",
+      "import": "./dist/input/*.js"
+    },
+    "./hud": {
+      "types": "./dist/hud/index.d.ts",
+      "import": "./dist/hud/index.js"
+    },
+    "./hud/*": {
+      "types": "./dist/hud/*.d.ts",
+      "import": "./dist/hud/*.js"
+    },
+    "./loop": {
+      "types": "./dist/loop/index.d.ts",
+      "import": "./dist/loop/index.js"
+    },
+    "./loop/*": {
+      "types": "./dist/loop/*.d.ts",
+      "import": "./dist/loop/*.js"
+    },
+    "./tooling/*": "./tooling/*.mjs",
+    "./tooling/release/*": "./tooling/release/*.mjs",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "ogf-skill-lessons": "bin/skill-lessons.mjs",
+    "ogf-compute-bump": "tooling/release/compute-bump.mjs",
+    "ogf-collate-changelog": "tooling/release/collate-changelog.mjs",
+    "ogf-check-changeset": "tooling/release/check-changeset.mjs",
+    "ogf-extract-section": "tooling/release/extract-section.mjs"
+  },
+  "scripts": {
+    "build": "tsup && prettier --write dist --log-level warn",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
+    "bump": "node tooling/release/compute-bump.mjs",
+    "changelog": "node tooling/release/collate-changelog.mjs",
+    "candidates": "node .agent/skills/find-refactor-candidates/scripts/similarity.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.3",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "eslint": "^10.5.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.4.2",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

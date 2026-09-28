@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    // tsup's .d.ts build injects a `baseUrl`, which TypeScript 6 deprecates.
+    "ignoreDeprecations": "6.0",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    // The games' own strictness, not more: the modules here were lifted from
+    // them and must keep compiling byte-for-byte the same arithmetic, so
+    // `noUncheckedIndexedAccess` stays off (turning it on would mean
+    // rewriting hot loops the determinism digests were cut under).
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src", "tests"]
+}

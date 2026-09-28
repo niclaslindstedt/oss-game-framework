@@ -1,0 +1,8 @@
+node_modules/
+coverage/
+.reference/
+*.log
+.DS_Store
+.idea/
+.vscode/
+# dist/ is COMMITTED on purpose — see AGENTS.md "Why dist/ is committed".
