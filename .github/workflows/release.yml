@@ -1,0 +1,109 @@
+name: release
+
+# Manual-only automatic versioning. The maintainer dispatches this and the
+# workflow derives the semver bump from the changeset fragments waiting in
+# .changes/unreleased/, collates them into a dated CHANGELOG section, bumps
+# package.json, rebuilds the COMMITTED dist/, commits, tags vX.Y.Z, pushes,
+# and attaches a GitHub Release whose body is the new changelog section.
+#
+# THERE IS NO REGISTRY PUBLISH. The games install the framework straight off
+# the tag — `github:niclaslindstedt/oss-game-framework#vX.Y.Z` — which is why
+# dist/ is committed: npm packs a git dependency as it stands, with no build
+# step and no credentials on the consumer's side. Upgrading a game is moving
+# that one tag in its package.json and running `npm install` (the
+# `adopt-framework` skill walks it).
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump. 'auto' derives it from the .changes/unreleased/ fragments (breaking → major, Added/Changed/Removed/Deprecated → minor, Fixed/Security → patch)."
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify clean working tree
+        run: |
+          if ! git diff --quiet || ! git diff --quiet --cached; then
+            echo "::error::working tree is not clean — refusing to release"
+            git status
+            exit 1
+          fi
+
+      - name: Resolve bump
+        id: resolve
+        run: |
+          if [ "${{ inputs.bump }}" = "auto" ] || [ -z "${{ inputs.bump }}" ]; then
+            BUMP=$(node tooling/release/compute-bump.mjs)
+          else
+            BUMP="${{ inputs.bump }}"
+          fi
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version
+        id: bump
+        run: |
+          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -n "$LATEST_TAG" ]; then
+            npm version "${LATEST_TAG#v}" --no-git-tag-version --allow-same-version >/dev/null
+          fi
+          NEW=$(npm version ${{ steps.resolve.outputs.bump }} --no-git-tag-version)
+          echo "version=${NEW#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Collate changelog
+        run: node tooling/release/collate-changelog.mjs "${{ steps.bump.outputs.version }}"
+
+      - name: Extract release-notes body
+        run: node tooling/release/extract-section.mjs "${{ steps.bump.outputs.version }}" > .release-notes.md
+
+      - run: make lint
+      - run: make test
+      - run: make build
+
+      - name: Commit + tag
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json CHANGELOG.md .changes/unreleased dist
+          git commit -m "chore(release): v${VERSION}"
+          git tag -a "$TAG" -m "Release ${TAG}"
+          git push origin HEAD:main
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.bump.outputs.tag }}" \
+            --title "${{ steps.bump.outputs.tag }}" \
+            --notes-file .release-notes.md \
+            --verify-tag
