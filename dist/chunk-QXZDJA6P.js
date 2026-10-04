@@ -22,7 +22,7 @@ import {
   MIME_PNG,
   COPY_WAIT_MS,
 } from "./chunk-OL5GU4WW.js";
-import { readHudLayer, drawHudLayer } from "./chunk-T5WJMIEP.js";
+import { readHudLayer, drawHudLayer } from "./chunk-YFDN2SAJ.js";
 import {
   stampLift,
   stampLayout,

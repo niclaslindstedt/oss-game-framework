@@ -9,7 +9,8 @@
 //   the picture has to carry the clock, the lap and the place that
 //   were on screen when the button went down, and the frame that serves the
 //   request is one or three later. It serializes and nothing more — no
-//   decode, no canvas — so a press never costs a frame.
+//   decode — so a press never costs a frame. The one pixel read it makes is
+//   a canvas INSIDE the HUD (a minimap), lifted as it stands: see `still`.
 //
 //   `drawHudLayer` is ASYNCHRONOUS and runs with the stamp and the encode,
 //   long after the drawing buffer has been read.
@@ -33,7 +34,8 @@
 // replay's transport bar: the pause card's
 // PICTURE row is pressed with the card up, and the picture it asked for is
 // the frozen race under the card, never a photograph of the button that
-// took it. The CANVAS is left out too, because it IS the picture.
+// took it. The CANVAS is left out too, because it IS the picture — but a
+// canvas INSIDE the HUD comes along as the picture it holds.
 
 import { animatedProperties, hudLayerSvg, type HudCover } from "./shot-plan";
 
@@ -146,7 +148,8 @@ type FrozenEffect = {
 
 /**
  * A deep copy of `live` with every animation and transition it is part-way
- * through written down as plain declarations.
+ * through written down as plain declarations, and every canvas as the
+ * picture it holds (`stillCanvases`).
  *
  * The layer is painted at time zero (shot-plan.ts), so an entrance that has
  * already played renders from its first keyframe: the news column and the thumb
@@ -162,8 +165,18 @@ type FrozenEffect = {
  */
 function still(live: Element): Element {
   const clone = live.cloneNode(true) as Element;
+  stillAnimations(live, clone);
+  // After the animations, which find their twins by position: a canvas
+  // swapped for an image takes its fallback content with it.
+  stillCanvases(live, clone);
+  return clone;
+}
+
+/** Every property an animation is moving on `live`, inlined on its twin in
+ * `clone` — see `still`. */
+function stillAnimations(live: Element, clone: Element): void {
   const animations = relevantAnimations(live);
-  if (animations.length === 0) return clone;
+  if (animations.length === 0) return;
   // Same tree, same order: `querySelectorAll` walks a clone exactly as it
   // walks its original, so position is identity and no marker attribute has
   // to be written onto the live page to find a node again.
@@ -189,7 +202,46 @@ function still(live: Element): Element {
       if (value !== "") twin.style.setProperty(property, value, "important");
     }
   }
-  return clone;
+}
+
+/**
+ * Every canvas under `live`, written into its copy as the picture it holds.
+ *
+ * A canvas serializes as an empty element — its pixels are not markup — so
+ * an instrument painted on one (a minimap) would come into the layer as a
+ * blank box over whatever the stylesheet puts behind it. The copy's canvas
+ * is swapped for an `<img>` of the live one's pixels, carrying its
+ * attributes, so the stylesheet places and sizes it exactly as it did the
+ * canvas. A data URL, as the layer itself is, so nothing is fetched and the
+ * frame stays readable.
+ *
+ * A canvas that cannot be read (tainted, or of no size) is left as it was:
+ * a blank instrument, never a lost picture.
+ */
+function stillCanvases(live: Element, clone: Element): void {
+  const canvases = Array.from(live.querySelectorAll("canvas"));
+  if (canvases.length === 0) return;
+  const twins = Array.from(clone.querySelectorAll("canvas"));
+  canvases.forEach((canvas, i) => {
+    const twin = twins[i];
+    const src = canvasPixels(canvas);
+    if (!twin || !src) return;
+    const image = twin.ownerDocument.createElement("img");
+    for (const { name, value } of Array.from(twin.attributes)) image.setAttribute(name, value);
+    image.setAttribute("src", src);
+    twin.replaceWith(image);
+  });
+}
+
+/** A canvas's pixels as a PNG data URL, or null where there are none to
+ * read. */
+function canvasPixels(canvas: HTMLCanvasElement): string | null {
+  try {
+    if (canvas.width < 1 || canvas.height < 1) return null;
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 }
 
 /** The animations and transitions running under an element, or none where
