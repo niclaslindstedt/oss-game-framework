@@ -10,6 +10,12 @@ in `.changes/unreleased/` — do not edit it by hand (see CONTRIBUTING.md).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-04
+
+### Fixed
+
+- **A canvas in the HUD comes into the picture** — `readHudLayer` now carries every canvas inside the HUD (a minimap) into the screenshot as the picture it holds, where it used to come out as an empty box.
+
 ## [0.1.0] - 2026-09-28
 
 ### Added
