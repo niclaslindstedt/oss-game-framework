@@ -49,8 +49,13 @@ function chromeMarkup(host, exclude) {
 }
 function still(live) {
   const clone = live.cloneNode(true);
+  stillAnimations(live, clone);
+  stillCanvases(live, clone);
+  return clone;
+}
+function stillAnimations(live, clone) {
   const animations = relevantAnimations(live);
-  if (animations.length === 0) return clone;
+  if (animations.length === 0) return;
   const twins = /* @__PURE__ */ new Map();
   const liveNodes = [live, ...Array.from(live.querySelectorAll("*"))];
   const cloneNodes = [clone, ...Array.from(clone.querySelectorAll("*"))];
@@ -70,7 +75,28 @@ function still(live) {
       if (value !== "") twin.style.setProperty(property, value, "important");
     }
   }
-  return clone;
+}
+function stillCanvases(live, clone) {
+  const canvases = Array.from(live.querySelectorAll("canvas"));
+  if (canvases.length === 0) return;
+  const twins = Array.from(clone.querySelectorAll("canvas"));
+  canvases.forEach((canvas, i) => {
+    const twin = twins[i];
+    const src = canvasPixels(canvas);
+    if (!twin || !src) return;
+    const image = twin.ownerDocument.createElement("img");
+    for (const { name, value } of Array.from(twin.attributes)) image.setAttribute(name, value);
+    image.setAttribute("src", src);
+    twin.replaceWith(image);
+  });
+}
+function canvasPixels(canvas) {
+  try {
+    if (canvas.width < 1 || canvas.height < 1) return null;
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 }
 function relevantAnimations(live) {
   try {
