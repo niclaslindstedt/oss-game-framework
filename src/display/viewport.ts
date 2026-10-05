@@ -67,8 +67,15 @@ export function sameViewport(a: Viewport | null, b: Viewport): boolean {
 /** WHERE THE BROWSER IS ACTUALLY SHOWING THE PAGE — the visible window's
  * place inside the layout viewport, in CSS px. `top` and `bottom` are the
  * strips of layout viewport above and below it, which is what a surface
- * anchored to the viewport's own top or bottom edge has to be pushed by. */
-export type VisibleBox = { top: number; height: number; bottom: number };
+ * anchored to the viewport's own top or bottom edge has to be pushed by.
+ *
+ * `seen` is how tall the visible window itself reads, the one figure not
+ * stated against the layout viewport. It is the FLOOR under the shell: the
+ * offsets are measured against a layout viewport that can be stale, the
+ * stylesheet subtracts them from a unit that is not, and the two only agree
+ * while the browser does. Where they do not, the window the player is
+ * looking at is still this tall, so a shell never needs to be shorter. */
+export type VisibleBox = { top: number; height: number; bottom: number; seen: number };
 
 /** The visual viewport as this module needs it — the fields of
  * `window.visualViewport` that say where the visible window is. */
@@ -94,7 +101,8 @@ export type VisualWindow = { height: number; offsetTop: number; scale: number };
  * zoom out in its viewport meta, so this is the case that should not arise
  * rather than the case that is handled.
  *
- * Everything is rounded to whole px and clamped into the layout viewport:
+ * Everything is rounded to whole px and, but for `seen`, clamped into the
+ * layout viewport:
  * the numbers are read back as lengths on the shell, and a fractional or
  * out-of-range one is a blurred edge or a shell with no height at all.
  *
@@ -110,6 +118,17 @@ export type VisualWindow = { height: number; offsetTop: number; scale: number };
  * app's background colour everywhere else until it is restarted. The top
  * offset is still reported with nothing focused, because a window left slid
  * down by a keyboard that has gone is real, and the caller scrolls it back.
+ *
+ * A ROTATION is the other way the two come out of step, and there it is the
+ * TOP that goes wrong: an installed iOS app turned from upright onto its side
+ * can read its visible window slid most of the way down a layout viewport
+ * that is still the upright one's height, with no notice afterwards when the
+ * browser puts it back. The top is real at the moment it is read, so it is
+ * reported, but the shell laid out under it is the unit's height less the
+ * offset — a sliver along the top of the screen. `seen` is what rescues it:
+ * not clamped into the layout viewport, because the layout viewport is the
+ * reading that has gone stale, and only floored at one px. The stylesheet
+ * reads it as the least the shell's height may be, and caps it at the unit.
  */
 export function visibleBox(
   visual: VisualWindow | null,
@@ -117,7 +136,7 @@ export function visibleBox(
   keyboard = true,
 ): VisibleBox {
   const layout = Math.max(1, Math.round(layoutHeight));
-  const whole = { top: 0, height: layout, bottom: 0 };
+  const whole = { top: 0, height: layout, bottom: 0, seen: layout };
   if (!visual || !Number.isFinite(visual.height) || !Number.isFinite(visual.offsetTop)) {
     return whole;
   }
@@ -126,12 +145,23 @@ export function visibleBox(
   const height = keyboard
     ? Math.min(Math.max(1, Math.round(visual.height)), layout - top)
     : layout - top;
-  return { top, height, bottom: layout - top - height };
+  return {
+    top,
+    height,
+    bottom: layout - top - height,
+    seen: Math.max(1, Math.round(visual.height)),
+  };
 }
 
 /** Whether a fresh reading asks for anything the shell is not already
  * wearing. The visual viewport reports on every scroll of it, and almost
  * every one of those leaves the box where it was. */
 export function sameBox(a: VisibleBox | null, b: VisibleBox): boolean {
-  return a !== null && a.top === b.top && a.height === b.height && a.bottom === b.bottom;
+  return (
+    a !== null &&
+    a.top === b.top &&
+    a.height === b.height &&
+    a.bottom === b.bottom &&
+    a.seen === b.seen
+  );
 }

@@ -103,15 +103,16 @@ describe("visibleBox", () => {
       top: 0,
       height: 393,
       bottom: 0,
+      seen: 393,
     });
   });
 
   it("is the whole layout viewport with no visual viewport to measure", () => {
-    expect(visibleBox(null, 720)).toEqual({ top: 0, height: 720, bottom: 0 });
+    expect(visibleBox(null, 720)).toEqual({ top: 0, height: 720, bottom: 0, seen: 720 });
   });
 
   it("reports where a keyboard has left the visible window", () => {
-    expect(visibleBox(KEYBOARD, 393)).toEqual({ top: 245, height: 148, bottom: 0 });
+    expect(visibleBox(KEYBOARD, 393)).toEqual({ top: 245, height: 148, bottom: 0, seen: 148 });
   });
 
   it("accounts for every px of the layout viewport", () => {
@@ -124,6 +125,7 @@ describe("visibleBox", () => {
       top: 0,
       height: 393,
       bottom: 0,
+      seen: 393,
     });
   });
 
@@ -132,6 +134,7 @@ describe("visibleBox", () => {
       top: 245,
       height: 148,
       bottom: 0,
+      seen: 148,
     });
   });
 
@@ -159,22 +162,44 @@ describe("visibleBox", () => {
         top: 0,
         height: 852,
         bottom: 0,
+        seen: 393,
       });
       // A visual window read mid-relayout, a sliver of the screen.
       expect(visibleBox({ height: 28, offsetTop: 0, scale: 1 }, 393, false)).toEqual({
         top: 0,
         height: 393,
         bottom: 0,
+        seen: 28,
       });
     });
 
     it("still reports a window left slid down by a keyboard that has gone", () => {
-      expect(visibleBox(KEYBOARD, 393, false)).toEqual({ top: 245, height: 148, bottom: 0 });
+      expect(visibleBox(KEYBOARD, 393, false)).toEqual({
+        top: 245,
+        height: 148,
+        bottom: 0,
+        seen: 148,
+      });
       expect(visibleBox({ height: 100, offsetTop: 60, scale: 1 }, 393, false)).toEqual({
         top: 60,
         height: 333,
         bottom: 0,
+        seen: 100,
       });
+    });
+
+    it("floors the shell at the window a rotation leaves it slid down to", () => {
+      // An installed iOS app turned from upright (852) onto its side (393),
+      // its visible window read slid 385 px down a layout viewport that has
+      // not caught up. The offset is real, so it stands — and a shell laid
+      // out as the unit less it is 8 px tall. The window it sits in is still
+      // the whole screen, and that is what the stylesheet floors it at.
+      const box = visibleBox({ height: 393, offsetTop: 385, scale: 1 }, 852, false);
+      expect(box.top).toBe(385);
+      expect(box.seen).toBe(393);
+      const unit = 393;
+      const shell = Math.min(unit, Math.max(unit - box.top - box.bottom, box.seen));
+      expect(shell).toBe(393);
     });
 
     it("is unchanged where the two viewports agree", () => {
@@ -186,7 +211,7 @@ describe("visibleBox", () => {
 });
 
 describe("sameBox", () => {
-  const box = { top: 245, height: 148, bottom: 0 };
+  const box = { top: 245, height: 148, bottom: 0, seen: 148 };
 
   it("has no opinion until a box has been worn", () => {
     expect(sameBox(null, box)).toBe(false);
@@ -197,6 +222,10 @@ describe("sameBox", () => {
   });
 
   it("acts on a window that has moved without changing size", () => {
-    expect(sameBox({ top: 0, height: 148, bottom: 245 }, box)).toBe(false);
+    expect(sameBox({ top: 0, height: 148, bottom: 245, seen: 148 }, box)).toBe(false);
+  });
+
+  it("acts on a window that has changed size where the offsets have not", () => {
+    expect(sameBox({ ...box, seen: 393 }, box)).toBe(false);
   });
 });

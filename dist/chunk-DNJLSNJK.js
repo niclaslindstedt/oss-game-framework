@@ -14,7 +14,7 @@ function sameViewport(a, b) {
 }
 function visibleBox(visual, layoutHeight, keyboard = true) {
   const layout = Math.max(1, Math.round(layoutHeight));
-  const whole = { top: 0, height: layout, bottom: 0 };
+  const whole = { top: 0, height: layout, bottom: 0, seen: layout };
   if (!visual || !Number.isFinite(visual.height) || !Number.isFinite(visual.offsetTop)) {
     return whole;
   }
@@ -23,10 +23,21 @@ function visibleBox(visual, layoutHeight, keyboard = true) {
   const height = keyboard
     ? Math.min(Math.max(1, Math.round(visual.height)), layout - top)
     : layout - top;
-  return { top, height, bottom: layout - top - height };
+  return {
+    top,
+    height,
+    bottom: layout - top - height,
+    seen: Math.max(1, Math.round(visual.height)),
+  };
 }
 function sameBox(a, b) {
-  return a !== null && a.top === b.top && a.height === b.height && a.bottom === b.bottom;
+  return (
+    a !== null &&
+    a.top === b.top &&
+    a.height === b.height &&
+    a.bottom === b.bottom &&
+    a.seen === b.seen
+  );
 }
 
 export { MAX_DPR, MIN_DPR, sameBox, sameViewport, viewportOf, visibleBox };
