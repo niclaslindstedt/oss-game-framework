@@ -97,8 +97,25 @@ export type VisualWindow = { height: number; offsetTop: number; scale: number };
  * Everything is rounded to whole px and clamped into the layout viewport:
  * the numbers are read back as lengths on the shell, and a fractional or
  * out-of-range one is a blurred edge or a shell with no height at all.
+ *
+ * `keyboard` is whether anything is being typed into. A strip of viewport
+ * BELOW the visible window is a keyboard's and nothing else's, so with no
+ * field focused the window is taken to reach the layout's bottom whatever
+ * the reading says. That is not a nicety: an installed iOS app brought back
+ * from the background can read its two viewports out of step — the layout
+ * still the height it had in the other orientation, or the visual window
+ * caught mid-relayout — and once the browser has settled it often sends no
+ * notice to measure again. Believed, such a reading is a bottom strip as
+ * tall as the screen, the shell squeezed to a sliver along the top, and the
+ * app's background colour everywhere else until it is restarted. The top
+ * offset is still reported with nothing focused, because a window left slid
+ * down by a keyboard that has gone is real, and the caller scrolls it back.
  */
-export function visibleBox(visual: VisualWindow | null, layoutHeight: number): VisibleBox {
+export function visibleBox(
+  visual: VisualWindow | null,
+  layoutHeight: number,
+  keyboard = true,
+): VisibleBox {
   const layout = Math.max(1, Math.round(layoutHeight));
   const whole = { top: 0, height: layout, bottom: 0 };
   if (!visual || !Number.isFinite(visual.height) || !Number.isFinite(visual.offsetTop)) {
@@ -106,7 +123,9 @@ export function visibleBox(visual: VisualWindow | null, layoutHeight: number): V
   }
   if (Math.abs(visual.scale - 1) > 0.01) return whole;
   const top = Math.min(Math.max(0, Math.round(visual.offsetTop)), layout - 1);
-  const height = Math.min(Math.max(1, Math.round(visual.height)), layout - top);
+  const height = keyboard
+    ? Math.min(Math.max(1, Math.round(visual.height)), layout - top)
+    : layout - top;
   return { top, height, bottom: layout - top - height };
 }
 

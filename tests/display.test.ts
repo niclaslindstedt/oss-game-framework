@@ -150,6 +150,39 @@ describe("visibleBox", () => {
   it("never reports a negative offset", () => {
     expect(visibleBox({ height: 393, offsetTop: -20, scale: 1 }, 393).top).toBe(0);
   });
+
+  describe("with nothing being typed into", () => {
+    it("never leaves a strip below the window, which only a keyboard makes", () => {
+      // An installed iOS app resumed on its side, still reading the layout
+      // viewport it had upright: believed, this is a shell 0 px tall.
+      expect(visibleBox({ height: 393, offsetTop: 0, scale: 1 }, 852, false)).toEqual({
+        top: 0,
+        height: 852,
+        bottom: 0,
+      });
+      // A visual window read mid-relayout, a sliver of the screen.
+      expect(visibleBox({ height: 28, offsetTop: 0, scale: 1 }, 393, false)).toEqual({
+        top: 0,
+        height: 393,
+        bottom: 0,
+      });
+    });
+
+    it("still reports a window left slid down by a keyboard that has gone", () => {
+      expect(visibleBox(KEYBOARD, 393, false)).toEqual({ top: 245, height: 148, bottom: 0 });
+      expect(visibleBox({ height: 100, offsetTop: 60, scale: 1 }, 393, false)).toEqual({
+        top: 60,
+        height: 333,
+        bottom: 0,
+      });
+    });
+
+    it("is unchanged where the two viewports agree", () => {
+      expect(visibleBox({ height: 393, offsetTop: 0, scale: 1 }, 393, false)).toEqual(
+        visibleBox({ height: 393, offsetTop: 0, scale: 1 }, 393),
+      );
+    });
+  });
 });
 
 describe("sameBox", () => {
