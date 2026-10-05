@@ -25,8 +25,13 @@
 // turned while it was away, is measured at the moment it is shown — before
 // the browser has finished laying it out again, and the reading that comes
 // back can be the other orientation's. The relayout that follows does not
-// reliably send a notice of its own, so a resume or a rotation is measured
-// again over the next two frames and twice more after that.
+// reliably send a notice of its own, so a resume, a rotation or a resize is
+// measured again over the next two frames and twice more after that. And
+// because a stale reading can still be the last one, the visible window's
+// own height is published beside the offsets as the floor under the shell
+// (`--shell-seen`, `viewport.ts`'s `VisibleBox.seen`): a shell measured
+// wrong is then at worst as tall as the screen it is on, never a sliver of
+// it.
 //
 // THE REPAIR: an offset window with nothing focused is a window the browser
 // forgot to put back, and scrolling to the origin is what puts it back.
@@ -49,17 +54,27 @@ function typing(active: Element | null): boolean {
 /**
  * Keep `--shell-top` and `--shell-bottom` on the document element saying how
  * far the visible window has been pushed off the viewport's two edges, and
- * put a forgotten window back.
+ * `--shell-seen` saying how tall that window is, and put a forgotten window
+ * back.
  *
  * Returns the way to stop. Called once, before the app renders, so the first
  * layout is already measured rather than corrected a frame later.
  *
- * ONLY THE DISPLACEMENT IS WRITTEN, never a height. How tall the viewport is
- * is the stylesheet's `--shell-height`, and on iOS it has to stay a unit:
+ * THE DISPLACEMENT IS WRITTEN, never a height to wear. How tall the viewport
+ * is is the stylesheet's `--shell-height`, and on iOS it has to stay a unit:
  * `100vh` reaches the physical bottom of the screen where the layout viewport
- * this measures against stops short of it. So both properties are 0 whenever
+ * this measures against stops short of it. So both offsets are 0 whenever
  * the browser is showing the whole page, and the shell is then laid out to
- * the same lengths it would have been with none of this here.
+ * the same lengths it would have been with none of this here. `--shell-seen`
+ * is a FLOOR, not a height: read as
+ *
+ *   min(var(--shell-height),
+ *       max(calc(var(--shell-height) - var(--shell-top) - var(--shell-bottom)),
+ *           var(--shell-seen)))
+ *
+ * it changes nothing while the unit less the offsets is at least the window
+ * (which is always, while the readings agree), and the unit caps a window
+ * read too tall.
  */
 export function watchVisibleViewport(): () => void {
   const visual = window.visualViewport;
@@ -78,6 +93,7 @@ export function watchVisibleViewport(): () => void {
       worn = next;
       root.style.setProperty("--shell-top", `${next.top}px`);
       root.style.setProperty("--shell-bottom", `${next.bottom}px`);
+      root.style.setProperty("--shell-seen", `${next.seen}px`);
     }
     // Nothing is being typed into, so an offset window is a window left
     // behind by a keyboard that has already gone. Both offsets are put back:
@@ -116,10 +132,12 @@ export function watchVisibleViewport(): () => void {
   // the moment a keyboard starts to go — and `pageshow`, the visibility
   // change and a rotation cover an app coming back from the background,
   // which is the other way a stale reading is found waiting, so those three
-  // are settled rather than measured once.
-  visual?.addEventListener("resize", measure);
+  // are settled rather than measured once — and so is a resize, which is
+  // the notice a rotation in the foreground reliably gives and which iOS
+  // sends before it has finished laying the page out in its new shape.
+  visual?.addEventListener("resize", settle);
   visual?.addEventListener("scroll", measure);
-  window.addEventListener("resize", measure);
+  window.addEventListener("resize", settle);
   window.addEventListener("orientationchange", settle);
   window.addEventListener("pageshow", settle);
   window.addEventListener("focusout", measure);
@@ -127,9 +145,9 @@ export function watchVisibleViewport(): () => void {
 
   return () => {
     unsettle();
-    visual?.removeEventListener("resize", measure);
+    visual?.removeEventListener("resize", settle);
     visual?.removeEventListener("scroll", measure);
-    window.removeEventListener("resize", measure);
+    window.removeEventListener("resize", settle);
     window.removeEventListener("orientationchange", settle);
     window.removeEventListener("pageshow", settle);
     window.removeEventListener("focusout", measure);

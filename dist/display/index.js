@@ -1,5 +1,5 @@
-import "../chunk-MVP7BSYL.js";
-export { watchVisibleViewport } from "../chunk-FDAVBE3M.js";
+import "../chunk-7IT4ZYP6.js";
+export { watchVisibleViewport } from "../chunk-QML42LMJ.js";
 export {
   MAX_DPR,
   MIN_DPR,
@@ -7,5 +7,5 @@ export {
   sameViewport,
   viewportOf,
   visibleBox,
-} from "../chunk-7VTI5ZYZ.js";
+} from "../chunk-TWGBUASE.js";
 import "../chunk-MLKGABMK.js";
