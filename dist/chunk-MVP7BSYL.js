@@ -1,4 +1,4 @@
-import { watchVisibleViewport } from "./chunk-VG4GY6RY.js";
+import { watchVisibleViewport } from "./chunk-FDAVBE3M.js";
 import {
   visibleBox,
   viewportOf,
@@ -6,7 +6,7 @@ import {
   sameBox,
   MIN_DPR,
   MAX_DPR,
-} from "./chunk-44T5PL7B.js";
+} from "./chunk-7VTI5ZYZ.js";
 import { __export } from "./chunk-MLKGABMK.js";
 
 // src/display/index.ts

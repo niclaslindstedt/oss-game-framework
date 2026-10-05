@@ -19,7 +19,14 @@
 // published as two lengths, and the stylesheet lays the shell out inside what
 // is left rather than against the viewport's own edges. The arithmetic is
 // `viewport.ts`'s `visibleBox` (DOM-free, and tested); what is here is the
-// listening, the writing, and the one repair.
+// listening, the writing, the one repair and the settling.
+//
+// THE SETTLING: an installed iOS app brought back from the background, or
+// turned while it was away, is measured at the moment it is shown — before
+// the browser has finished laying it out again, and the reading that comes
+// back can be the other orientation's. The relayout that follows does not
+// reliably send a notice of its own, so a resume or a rotation is measured
+// again over the next two frames and twice more after that.
 //
 // THE REPAIR: an offset window with nothing focused is a window the browser
 // forgot to put back, and scrolling to the origin is what puts it back.
@@ -60,12 +67,13 @@ export function watchVisibleViewport(): () => void {
   let worn: VisibleBox | null = null;
 
   const measure = (): void => {
+    const keys = typing(document.activeElement);
     // Measured against the LAYOUT viewport (`window.innerHeight`), which is
     // the box the visible window is offset WITHIN and the box every
     // `position: fixed` surface is laid out against. Both readings come from
     // the same place, so a browser that means something slightly different by
     // it still reports no displacement when there is none.
-    const next = visibleBox(visual, window.innerHeight);
+    const next = visibleBox(visual, window.innerHeight, keys);
     if (!sameBox(worn, next)) {
       worn = next;
       root.style.setProperty("--shell-top", `${next.top}px`);
@@ -77,33 +85,54 @@ export function watchVisibleViewport(): () => void {
     // visual viewport's own is the browser's business, and one `scrollTo`
     // answers for both. It settles rather than loops — the scroll it asks
     // for reports back with the offsets at zero, which asks for nothing.
-    if (typing(document.activeElement)) return;
+    if (keys) return;
     if (next.top !== 0 || window.scrollY !== 0 || window.scrollX !== 0) {
       window.scrollTo(0, 0);
     }
   };
 
+  // The later looks a resume or a rotation is given (THE SETTLING, above):
+  // the next two frames, then a moment and a second on. A fresh notice
+  // starts the round again rather than stacking a second one beside it.
+  let frame = 0;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const unsettle = (): void => {
+    cancelAnimationFrame(frame);
+    for (const timer of timers) clearTimeout(timer);
+    timers.length = 0;
+  };
+  const settle = (): void => {
+    measure();
+    unsettle();
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(measure);
+    });
+    timers.push(setTimeout(measure, 250), setTimeout(measure, 1000));
+  };
+
   measure();
   // Every notice the browser gives that the window may have moved or
   // changed size. `focusout` is the one that matters for the repair — it is
-  // the moment a keyboard starts to go — and `pageshow` and the visibility
-  // change cover an app coming back from the background, which is the other
-  // way a stale offset is found waiting.
+  // the moment a keyboard starts to go — and `pageshow`, the visibility
+  // change and a rotation cover an app coming back from the background,
+  // which is the other way a stale reading is found waiting, so those three
+  // are settled rather than measured once.
   visual?.addEventListener("resize", measure);
   visual?.addEventListener("scroll", measure);
   window.addEventListener("resize", measure);
-  window.addEventListener("orientationchange", measure);
-  window.addEventListener("pageshow", measure);
+  window.addEventListener("orientationchange", settle);
+  window.addEventListener("pageshow", settle);
   window.addEventListener("focusout", measure);
-  document.addEventListener("visibilitychange", measure);
+  document.addEventListener("visibilitychange", settle);
 
   return () => {
+    unsettle();
     visual?.removeEventListener("resize", measure);
     visual?.removeEventListener("scroll", measure);
     window.removeEventListener("resize", measure);
-    window.removeEventListener("orientationchange", measure);
-    window.removeEventListener("pageshow", measure);
+    window.removeEventListener("orientationchange", settle);
+    window.removeEventListener("pageshow", settle);
     window.removeEventListener("focusout", measure);
-    document.removeEventListener("visibilitychange", measure);
+    document.removeEventListener("visibilitychange", settle);
   };
 }

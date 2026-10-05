@@ -12,7 +12,7 @@ function viewportOf(cssWidth, cssHeight, dpr, scale = 1) {
 function sameViewport(a, b) {
   return a !== null && a.w === b.w && a.h === b.h && a.dpr === b.dpr;
 }
-function visibleBox(visual, layoutHeight) {
+function visibleBox(visual, layoutHeight, keyboard = true) {
   const layout = Math.max(1, Math.round(layoutHeight));
   const whole = { top: 0, height: layout, bottom: 0 };
   if (!visual || !Number.isFinite(visual.height) || !Number.isFinite(visual.offsetTop)) {
@@ -20,7 +20,9 @@ function visibleBox(visual, layoutHeight) {
   }
   if (Math.abs(visual.scale - 1) > 0.01) return whole;
   const top = Math.min(Math.max(0, Math.round(visual.offsetTop)), layout - 1);
-  const height = Math.min(Math.max(1, Math.round(visual.height)), layout - top);
+  const height = keyboard
+    ? Math.min(Math.max(1, Math.round(visual.height)), layout - top)
+    : layout - top;
   return { top, height, bottom: layout - top - height };
 }
 function sameBox(a, b) {
