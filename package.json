@@ -1,6 +1,6 @@
 {
   "name": "@niclaslindstedt/oss-game-framework",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared building blocks for browser racing games on a deterministic engine — the seeded PRNG and math pool, a racing module (control tapes, record books, standings), a synthesized WebAudio instrument, the screenshot roll, touch plumbing, PWA updates and Node lab tooling — extracted from game2, game3 and game4.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Niclas Lindstedt <niclas@agilator.se>",
