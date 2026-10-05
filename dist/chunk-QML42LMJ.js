@@ -1,4 +1,4 @@
-import { visibleBox, sameBox } from "./chunk-DNJLSNJK.js";
+import { visibleBox, sameBox } from "./chunk-TWGBUASE.js";
 
 // src/display/visible-viewport.ts
 function typing(active) {
