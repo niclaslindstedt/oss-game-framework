@@ -14,7 +14,21 @@ import * as output from "../src/core/output";
 import { polylineDistance, segmentDistance } from "../src/core/polyline";
 import { createRng } from "../src/core/prng";
 import * as quat from "../src/core/quat";
-import { daylightWindow, moonAt, sunAt } from "../src/core/solar";
+import {
+  SUNRISE,
+  daylightWindow,
+  hourOfSunOnDate,
+  julianDay,
+  julianDayOfYear,
+  lunarCoordinates,
+  moonAt,
+  moonOnDate,
+  refraction,
+  solarCoordinates,
+  sunAt,
+  sunOnDate,
+  sunWindowOnDate,
+} from "../src/core/solar";
 
 describe("the seeded stream (prng.ts)", () => {
   it("replays a seed exactly — these numbers are what every digest was cut under", () => {
@@ -128,6 +142,101 @@ describe("the sun and the moon (solar.ts)", () => {
   it("lights a full moon fully and a new one not at all", () => {
     expect(moonAt(0, 60, 0, 29.530589 / 2).lit).toBeCloseTo(1, 9);
     expect(moonAt(0, 60, 0, 0).lit).toBeCloseTo(0, 9);
+  });
+});
+
+describe("the sun and the moon on a real date (solar.ts)", () => {
+  const DEG = Math.PI / 180;
+
+  it("counts Julian days as the almanacs do", () => {
+    expect(julianDay(2000, 1, 1)).toBe(2451544.5);
+    expect(julianDay(1992, 10, 13)).toBe(2448908.5);
+    expect(julianDayOfYear(2026, 32)).toBe(julianDay(2026, 2, 1));
+  });
+
+  it("places the sun among the stars to a hundredth of a degree", () => {
+    // Meeus's worked example: 13 October 1992, 0h — the apparent
+    // declination −7.785° and the equation of time +13.71 min.
+    const s = solarCoordinates(2448908.5);
+    expect(s.declination).toBeCloseTo(-7.785, 2);
+    expect(s.equationOfTime).toBeCloseTo(13.71, 1);
+    // The solstices and the year's extremes of the equation of time.
+    expect(solarCoordinates(julianDay(2026, 6, 21) + 0.35).declination).toBeCloseTo(23.44, 1);
+    expect(solarCoordinates(julianDay(2026, 12, 21) + 0.9).declination).toBeCloseTo(-23.44, 1);
+    expect(solarCoordinates(julianDay(2026, 2, 11)).equationOfTime).toBeCloseTo(-14.2, 0);
+    expect(solarCoordinates(julianDay(2026, 11, 3)).equationOfTime).toBeCloseTo(16.4, 0);
+  });
+
+  it("lifts the sun about half a degree on the horizon and not at all overhead", () => {
+    expect(refraction(0) / DEG).toBeCloseTo(0.482, 3);
+    expect(refraction(10 * DEG) / DEG).toBeCloseTo(0.089, 2);
+    expect(refraction(89 * DEG)).toBe(0);
+    // Continuous where the fit changes piece.
+    expect(refraction(-0.5751 * DEG)).toBeCloseTo(refraction(-0.5749 * DEG), 6);
+  });
+
+  it("stands the sun due south at solar noon, lifted by the air", () => {
+    const jd0 = julianDay(2026, 2, 15);
+    const noon = sunOnDate(12, 45, 7, jd0);
+    expect(noon.azimuth).toBeCloseTo(Math.PI, 9);
+    expect(noon.elevation).toBeGreaterThan(noon.trueElevation);
+    expect(noon.trueElevation / DEG).toBeCloseTo(90 - 45 + noon.declination, 9);
+  });
+
+  it("rises the upper limb, not the centre, and sets it symmetric about noon", () => {
+    // The equinox on the equator: a day some seven minutes longer than
+    // twelve hours, all of it the refraction and the sun's half-width.
+    const jd0 = julianDay(2026, 3, 20);
+    const w = sunWindowOnDate(0, 0, jd0)!;
+    expect((w.max - w.min - 12) * 60).toBeGreaterThan(5);
+    expect((w.max - w.min - 12) * 60).toBeLessThan(9);
+    const up = hourOfSunOnDate(SUNRISE, true, 0, 0, jd0)!;
+    expect(sunOnDate(up, 0, 0, jd0).trueElevation / DEG).toBeCloseTo(-0.833, 4);
+  });
+
+  it("knows the midnight sun and the polar night", () => {
+    expect(sunWindowOnDate(69, 18, julianDay(2026, 6, 21))).toEqual({ min: 0, max: 24 });
+    expect(sunWindowOnDate(69, 18, julianDay(2026, 12, 21))).toBeNull();
+    // ...and that the polar night's noon is still a twilight.
+    const civil = sunWindowOnDate(69, 18, julianDay(2026, 12, 21), -6 * DEG);
+    expect(civil).not.toBeNull();
+    expect(civil!.min).toBeLessThan(12);
+    // The southern winter is the northern summer's mirror.
+    expect(sunWindowOnDate(-69, 18, julianDay(2026, 6, 21))).toBeNull();
+  });
+
+  it("places the moon among the stars to a few arc-minutes", () => {
+    // Meeus's worked example: 12 April 1992, 0h — λ 133.163°, β −3.229°,
+    // δ 13.768°, α 134.688°.
+    const m = lunarCoordinates(julianDay(1992, 4, 12));
+    expect(Math.abs(m.longitude - 133.163)).toBeLessThan(0.1);
+    expect(Math.abs(m.latitude - -3.229)).toBeLessThan(0.1);
+    expect(Math.abs(m.declination - 13.768)).toBeLessThan(0.1);
+    expect(Math.abs(m.rightAscension - 134.688)).toBeLessThan(0.1);
+    expect(m.distance).toBeGreaterThan(55);
+    expect(m.distance).toBeLessThan(64);
+  });
+
+  it("lights the moon by its real phase on its real date", () => {
+    // A new moon on 18 January 2026 at about 20h UT; a full one (eclipsed)
+    // on 3 March 2026 at about 11h30 UT.
+    const at = (y: number, mo: number, d: number, utc: number) =>
+      moonOnDate(utc, 0, 0, julianDay(y, mo, d) + 0);
+    const newMoon = moonOnDate(19.9, 0, 0, julianDay(2026, 1, 18));
+    expect(newMoon.lit).toBeLessThan(0.01);
+    expect(Math.min(newMoon.age, 29.530589 - newMoon.age)).toBeLessThan(0.3);
+    const full = at(2026, 3, 3, 11.5);
+    expect(full.lit).toBeGreaterThan(0.99);
+    expect(full.age).toBeCloseTo(29.530589 / 2, 0);
+  });
+
+  it("stands a winter full moon high where the winter sun stands low", () => {
+    // The full moon of 3 January 2026 at 45°N, round midnight.
+    const jd0 = julianDay(2026, 1, 3);
+    const moon = moonOnDate(0, 45, 0, jd0);
+    expect(moon.declination).toBeGreaterThan(20);
+    expect(moon.elevation / DEG).toBeGreaterThan(60);
+    expect(moon.lit).toBeGreaterThan(0.95);
   });
 });
 

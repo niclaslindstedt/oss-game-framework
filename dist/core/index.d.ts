@@ -33,14 +33,30 @@ export {
 } from "./heightfield.js";
 export { polylineDistance, segmentDistance } from "./polyline.js";
 export {
+  DatedMoonPlace,
+  DatedSunPlace,
+  MoonOrbit,
   MoonPlace,
   SOUTH,
+  SUNRISE,
   SYNODIC_MONTH,
+  SolarCoordinates,
   SunPlace,
+  TWILIGHT,
   daylightWindow,
   hourOfElevation,
+  hourOfSunOnDate,
+  julianDay,
+  julianDayOfYear,
+  lunarCoordinates,
   moonAt,
+  moonOnDate,
+  refraction,
+  solarCoordinates,
   sunAt,
+  sunOnDate,
+  sunWindowOnDate,
+  universalHourOf,
 } from "./solar.js";
 export { Clock, fixedClock, preciseClock, wallClock } from "./clock.js";
 export { Q as Quat, V as Vec3, q as quat } from "../quat-D0i_xUbh.js";
