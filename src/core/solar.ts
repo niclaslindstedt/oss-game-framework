@@ -408,12 +408,12 @@ export function lunarCoordinates(jd: number): MoonOrbit {
   const xv = a * (cosD(E) - e);
   const yv = a * Math.sqrt(1 - e * e) * sinD(E);
   const v = Math.atan2(yv, xv) / DEG;
-  let r = Math.hypot(xv, yv);
+  let r = Math.sqrt(xv * xv + yv * yv);
   const xh = r * (cosD(N) * cosD(v + w) - sinD(N) * sinD(v + w) * cosD(i));
   const yh = r * (sinD(N) * cosD(v + w) + cosD(N) * sinD(v + w) * cosD(i));
   const zh = r * sinD(v + w) * sinD(i);
   let lon = Math.atan2(yh, xh) / DEG;
-  let lat = Math.atan2(zh, Math.hypot(xh, yh)) / DEG;
+  let lat = Math.atan2(zh, Math.sqrt(xh * xh + yh * yh)) / DEG;
   // The perturbations: the evection, the variation, the yearly equation
   // and the rest down to a hundredth of a degree.
   const Ms = 356.047 + 0.9856002585 * d;
@@ -451,7 +451,7 @@ export function lunarCoordinates(jd: number): MoonOrbit {
     latitude: lat,
     distance: r,
     rightAscension: wrap360(Math.atan2(ye, xe) / DEG),
-    declination: Math.atan2(ze, Math.hypot(xe, ye)) / DEG,
+    declination: Math.atan2(ze, Math.sqrt(xe * xe + ye * ye)) / DEG,
   };
 }
 
